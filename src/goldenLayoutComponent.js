@@ -11,7 +11,25 @@ import { LGraph, LGraphCanvas } from "litegraph.js";
 import * as THREE from "three";
 import OrbitControls from "three-orbitcontrols";
 
-const GoldenLayout = () => {
+import Stats from "stats.js";
+
+import dat from "dat.gui";
+
+var stats = new Stats();
+stats.showPanel(0); // 0:fps, 1:ms, 2: mb, 3+: custom
+
+var AdboObject = function() {
+  this.ramenWidth = 43;
+  this.ramenColumnXY= 5;
+  this.ramenBeamZ= 4;
+  this.height= 27;
+  this.spanLength=0 ;
+  this.pivotMode= 0;
+  this.floor= 1;
+  this.floorHeight= 30;
+};
+
+var GoldenLayout = () => {
   const config = {
     content: [
       {
@@ -44,6 +62,20 @@ const GoldenLayout = () => {
 
   const divRef = useRef(null);
 
+  var renderer, scene, camera;
+  var mesh;
+
+  function animate() {
+    stats.begin();
+    stats.end();
+    //console.log('animateddd')
+    mesh.rotation.x += 0.01;
+    mesh.rotation.y += 0.02;
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    //console
+  }
+
   useEffect(() => {
     var litegraphCanvas;
     const gl = new goldenLayout(config, divRef.current);
@@ -72,36 +104,58 @@ const GoldenLayout = () => {
     });
 
     gl.registerComponent("datguiItem", function(container, state) {
-      container.getElement().html("<div>dat.gui</div>");
+      container.getElement().html("<div></div>");
+
+      var datRef = container.getElement().children()[0];
+
+      var Adbo = new AdboObject();
+      var gui = new dat.GUI({autoPlace:false});
+      gui.add(Adbo , 'ramenWidth')
+      gui.width = 765
+      datRef.appendChild(gui.domElement)
+
+
+      gl.on("componentCreated", function(component) {
+        component.container.on("resize", function() {
+          //console.log("component.resize", component.componentName);
+          gui.width = datRef.clientWidth
+        });
+      });
     });
 
-    var scene,renderer, camera;
-//style='width:100% ; height:100%'
+    //style='width:100% ; height:100%'
     gl.registerComponent("threeItem", function(container, state) {
-      container.getElement().html("<div style='width:100% ; height:100%'></div>");
+      container
+        .getElement()
+        .html("<div id='three' style='width:100% ; height:100%'></div>");
 
-      const threeRef = container.getElement().children()[0];
+      var threeRef = container.getElement().children()[0];
+      //console.log(container.getElement())
 
-      renderer = new THREE.WebGLRenderer();
-      //renderer.setSize(container.width, container.height);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       threeRef.appendChild(renderer.domElement);
-  camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
-      console.log( threeRef.clientWidth)
-      camera.position.z = 0;
-      // y z axis exchange
+      threeRef.appendChild(stats.dom);
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, 765 / 352);
       camera.up = new THREE.Vector3(0, 0, 1);
 
-     scene = new THREE.Scene();
+      renderer.setSize(765, 352);
 
+      var geometry = new THREE.BoxGeometry(2, 2, 2);
+      var material = new THREE.MeshNormalMaterial();
 
-      
-renderer.setSize( window.innerWidth, window.innerHeight );
+      mesh = new THREE.Mesh(geometry, material);
+      //mesh.position.set(10, 0, 0)
+      scene.add(mesh);
+
+      camera.position.z = 5;
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.25;
       controls.enableZoom = true;
+      // threeRef.current.appendChild(renderer.domElement);
+      // threeRef.current.appendChild(stats.dom)
 
       var GridHelper = new THREE.GridHelper(1000, 100);
       //  y z axis exchange
@@ -111,73 +165,35 @@ renderer.setSize( window.innerWidth, window.innerHeight );
       var AxesHelper = new THREE.AxesHelper(50);
       AxesHelper.position.set(0, 0, 0.1);
       scene.add(AxesHelper);
-      var geometry = new THREE.BoxGeometry(200, 200, 200);
-    var material = new THREE.MeshLambertMaterial({
-      
-      transparent: true,
-      opacity: 0.5
-    });
 
-    var mesh = new THREE.Mesh(geometry, material);
+      // animate();
 
-    scene.add(mesh)
-
-
-
-      var light = new THREE.AmbientLight(0x000000);
-    scene.add(light);
-
-    var lights = [];
-    lights[0] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[1] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[2] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[3] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[4] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[5] = new THREE.PointLight(0xffffff, 1, 0);
-    lights[0].position.set(0, 200, 0);
-    lights[1].position.set(100, 200, 100);
-    lights[2].position.set(-100, -200, -100);
-    lights[3].position.set(0, -200, 0);
-    lights[4].position.set(0, 0, 200);
-    lights[5].position.set(200, 0, 0);
-    scene.add(lights[0]);
-    scene.add(lights[1]);
-    scene.add(lights[2]);
-    scene.add(lights[3]);
-    scene.add(lights[4]);
-    scene.add(lights[5]);
-
-        console.log(renderer.domElement)
-
-        gl.on("componentCreated", function(component) {
-          component.container.on("resize", function() {
-            //console.log("component.resize", component.componentName);
-            //litegraphCanvas.resize();
-            renderer.setSize(renderer.domElement.parentElement.offsetWidth, renderer.domElement.parentElement.offsetHeight);
-            //renderer.setSize(renderer.domElement.parentElement.offsetWidth, renderer.domElement.parentElement.offsetHeight);
-            console.log('hihihihi')
-          });
+      gl.on("componentCreated", function(component) {
+        component.container.on("resize", function() {
+          renderer.setSize(
+            renderer.domElement.parentElement.offsetWidth,
+            renderer.domElement.parentElement.offsetHeight
+          );
+          camera.aspect =
+            renderer.domElement.parentElement.offsetWidth /
+            renderer.domElement.parentElement.offsetHeight;
+          camera.updateProjectionMatrix();
+          //renderer.setSize(container.width, container.height);
+          threeRef.appendChild(stats.dom);
         });
-     
+      });
     });
 
     gl.init();
+    animate();
 
     // init 후에 resize 해야 컨테이너에 width height 값이 생김
     litegraphCanvas.resize();
     //renderer.setSize(100, 100);
-    renderer.setSize(renderer.domElement.parentElement.offsetWidth, renderer.domElement.parentElement.offsetHeight);
 
+    console.log(scene);
 
-    // gl.on("componentCreated", function(component) {
-    //   component.container.on("resize", function() {
-    //     //console.log("component.resize", component.componentName);
-    //     litegraphCanvas.resize();
-    //     renderer.setSize(renderer.domElement.parentElement.offsetWidth, renderer.domElement.parentElement.offsetHeight);
-    //     //renderer.setSize(container.width, container.height);
-    //   });
-    
-    // });
+ 
   }, []);
 
   return (
